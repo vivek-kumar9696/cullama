@@ -1,0 +1,34 @@
+# --- Build Artifacts (Never commit these) ---
+build/
+bin/
+lib/
+*.o
+*.obj
+*.so
+*.dylib
+*.a
+
+# --- CMake Generated Files ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# --- The Executable ---
+cuLlama
+cuLlama.exe
+
+# --- Large Model Files (CRITICAL) ---
+# We do NOT want to accidentally commit 10GB of weights
+*.bin
+*.pth
+*.pt
+*.safetensors
+models/
+weights/
+
+# --- IDE Settings (Keep your personal configs local) ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
