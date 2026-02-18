@@ -1,63 +1,59 @@
 #include <iostream>
 #include <vector>
-#include <cmath>
+#include <cmath>       // For expf, abs
+#include <cuda_runtime.h>
+
+// Project Headers
 #include "cuda_utils.h"
 #include "memory_manager.h"
 #include "layers.h"
 #include "config.h"
 
 int main() {
-    std::cout << "[cuLlama] Phase 2: Kernel Testing (RoPE)" << std::endl;
+    std::cout << "[cuLlama] Phase 2.5: SwiGLU Activation" << std::endl;
     
     // 1. Setup
-    int head_dim = 128; // Standard Llama size
-    int n_heads = 4;
-    int n_kv_heads = 4;
-    int pos = 1; // Position 1
+    int dim = 4096; // Standard hidden dim
+    MemoryManager allocator(10 * 1024 * 1024); // 10MB Arena
 
-    MemoryManager allocator(10 * 1024 * 1024); // 10MB
+    float* d_gate = allocator.allocate<float>(dim);
+    float* d_up   = allocator.allocate<float>(dim);
 
-    // 2. Allocate Q (Batch 1, Heads 4, Dim 128)
-    size_t q_size = n_heads * head_dim;
-    float* d_q = allocator.allocate<float>(q_size);
-    float* d_k = allocator.allocate<float>(q_size); // Dummy K for now
-
-    // 3. Initialize Host Data: [1, 0, 1, 0...]
-    // A vector (1, 0) rotated by 90 degrees should become (0, 1) approx.
-    std::vector<float> h_q(q_size);
-    for (int i = 0; i < q_size; i+=2) {
-        h_q[i] = 1.0f;   // x
-        h_q[i+1] = 0.0f; // y
-    }
-
-    CUDA_CHECK(cudaMemcpy(d_q, h_q.data(), q_size * sizeof(float), cudaMemcpyHostToDevice));
-
-    // 4. Launch RoPE
-    // Llama theta base is 10000. 
-    // For index 0: theta = 1.0 / 10000^0 = 1.0.
-    // If pos = 1, rotation angle is 1 radian (~57 degrees).
-    // Expected Result: x = cos(1) - 0*sin(1) = 0.54
-    //                  y = 1*sin(1) + 0*cos(1) = 0.84
+    // 2. Initialize Host Data
+    // Gate = 10.0, Up = 0.5
+    // Result should be SiLU(10) * 0.5
+    // SiLU(10) ~= 10.0 (since sigmoid(10) ~= 1)
+    // Result ~= 5.0
     
-    std::cout << "Launching RoPE Kernel..." << std::endl;
-    launch_rope(d_q, d_k, pos, head_dim, n_heads, n_kv_heads);
+    std::vector<float> h_gate(dim, 10.0f);
+    std::vector<float> h_up(dim, 0.5f);
+
+    CUDA_CHECK(cudaMemcpy(d_gate, h_gate.data(), dim*sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_up, h_up.data(), dim*sizeof(float), cudaMemcpyHostToDevice));
+
+    // 3. Launch
+    std::cout << "Launching Fused SwiGLU Kernel..." << std::endl;
+    launch_silu_mul(d_gate, d_up, dim);
+    
+    // Wait for GPU to finish
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    // 5. Verify
-    std::vector<float> h_q_out(q_size);
-    CUDA_CHECK(cudaMemcpy(h_q_out.data(), d_q, q_size * sizeof(float), cudaMemcpyDeviceToHost));
+    // 4. Verify
+    std::vector<float> h_out(dim);
+    // In our kernel, we wrote the result back into d_gate (in-place)
+    CUDA_CHECK(cudaMemcpy(h_out.data(), d_gate, dim*sizeof(float), cudaMemcpyDeviceToHost));
 
-    std::cout << "Input: (1.0, 0.0)" << std::endl;
-    std::cout << "Output (Index 0): (" << h_q_out[0] << ", " << h_q_out[1] << ")" << std::endl;
+    std::cout << "Input Gate: 10.0, Input Up: 0.5" << std::endl;
+    std::cout << "Output: " << h_out[0] << std::endl;
 
-    // Check against CPU math
-    float expected_x = cosf(1.0f);
-    float expected_y = sinf(1.0f);
+    // Check Math: 10 * (1 / (1 + exp(-10))) * 0.5
+    float sigmoid = 1.0f / (1.0f + expf(-10.0f));
+    float expected = (10.0f * sigmoid) * 0.5f;
+    
+    std::cout << "Expected: " << expected << std::endl;
 
-    std::cout << "Expected: (" << expected_x << ", " << expected_y << ")" << std::endl;
-
-    if (abs(h_q_out[0] - expected_x) < 1e-4) {
-        std::cout << "[SUCCESS] RoPE Rotation Verified!" << std::endl;
+    if (std::abs(h_out[0] - expected) < 1e-4) {
+        std::cout << "[SUCCESS] SwiGLU Logic Verified!" << std::endl;
     } else {
         std::cerr << "[FAILURE] Math Mismatch." << std::endl;
     }

@@ -18,3 +18,9 @@ void launch_rope(float* d_q,
                  int n_heads, 
                  int n_kv_heads, 
                  cudaStream_t stream = 0);
+
+// SwiGLU (SiLU * Multiply)
+void launch_silu_mul(float* d_gate, 
+                    const float* d_up, 
+                    int size, 
+                    cudaStream_t stream = 0);
