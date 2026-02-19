@@ -123,13 +123,51 @@ mkdir build && cd build
 cmake -DBACKEND=HIP ..
 make
 ```
+### 4. 🛠️ Python Exporter Setup
 
-### 4. Run
+To run the C++ inference engine, you first need to download and convert the model weights from Hugging Face into our custom `.bin` format. We use a short Python script (`scripts/export_weights.py`) for this.
+
+We recommend using [uv](https://github.com/astral-sh/uv), an extremely fast Python package installer and resolver, to manage the dependencies.
+
+#### A. Install `uv` (if you haven't already)
+If you don't have `uv` installed on your system, you can install it via curl:
+```bash
+curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+```
+#### B. Set up the Environment
+
+Navigate to your project directory and create a virtual environment using uv:
+Bash
 
 ```bash
-./cuLlama --model path/to/llama-2-7b.bin --prompt "The future of AI is"
+# Create a virtual environment
+uv venv
+
+# Activate the environment (Linux/macOS)
+source .venv/bin/activate
+
+# (Note: If you are on Windows, use `.venv\Scripts\activate`)
+```
+#### C. Install Dependencies
+
+Once the virtual environment is activated, use uv pip to install the required machine learning packages. uv will install these significantly faster than standard pip.
+
+```bash
+uv pip install torch numpy transformers
+```
+#### D. Export the Weights
+
+With the dependencies installed, you can now run the exporter script to generate the model.bin file:
+
+```bash
+python3 scripts/export_weights.py
 ```
 
+### 5. Run
+
+```bash
+./cuLlama --model model.bin --prompt "The future of AI is"
+```
 ---
 
 ## 📊 Benchmarks (WIP)
