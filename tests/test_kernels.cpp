@@ -1,12 +1,9 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>
-#include <iostream>
 
-// Include our engine headers
-#include "memory_manager.h"
+#include "memory_manager.h" // Needed to allocate memory for tests
 #include "layers.h"
-#include "kv_cache.h"
 #include "cuda_utils.h"
 
 // --- Helper for approximate float comparison ---
@@ -15,30 +12,7 @@ bool is_close(float a, float b, float tol = 1e-3) {
 }
 
 // ==========================================
-// TEST 1: Memory Arena
-// ==========================================
-TEST(MemoryManager, AllocationAndReset) {
-    size_t size = 1024 * 1024; // 1MB
-    MemoryManager allocator(size);
-
-    float* p1 = allocator.allocate<float>(100);
-    float* p2 = allocator.allocate<float>(100);
-
-    // Pointers should be different
-    ASSERT_NE(p1, p2);
-    // P2 should be ahead of P1
-    ASSERT_GT(p2, p1);
-
-    // Reset
-    allocator.reset();
-    float* p3 = allocator.allocate<float>(100);
-
-    // After reset, p3 should point to the start (same as p1)
-    ASSERT_EQ(p1, p3);
-}
-
-// ==========================================
-// TEST 2: RMSNorm Kernel
+// TEST 1: RMSNorm Kernel
 // ==========================================
 TEST(Kernels, RMSNorm) {
     int dim = 128; // Small dim for testing
@@ -72,7 +46,7 @@ TEST(Kernels, RMSNorm) {
 }
 
 // ==========================================
-// TEST 3: RoPE (Rotation)
+// TEST 2: RoPE (Rotation)
 // ==========================================
 TEST(Kernels, RoPE) {
     int head_dim = 128;
@@ -103,7 +77,7 @@ TEST(Kernels, RoPE) {
 }
 
 // ==========================================
-// TEST 4: SwiGLU (Activation)
+// TEST 3: SwiGLU (Activation)
 // ==========================================
 TEST(Kernels, SwiGLU) {
     int dim = 128;
@@ -129,7 +103,7 @@ TEST(Kernels, SwiGLU) {
 }
 
 // ==========================================
-// TEST 5: FlashAttention
+// TEST 4: FlashAttention
 // ==========================================
 TEST(Kernels, FlashAttention) {
     int head_dim = 128;

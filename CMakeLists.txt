@@ -40,6 +40,7 @@ endif()
 # This contains all the logic, but NO main() function.
 file(GLOB_RECURSE CORE_SOURCES 
     "src/memory_manager.cpp"
+    "src/model_loader.cpp"
     "src/kv_cache.cpp"
     "kernels/*.cu"
 )
@@ -65,10 +66,12 @@ endif()
 add_executable(cuLlama src/main.cpp)
 target_link_libraries(cuLlama PRIVATE cuLlama_lib)
 
-
 # --- 3. The Test Suite (unit_tests) ---
-# We create a separate executable for testing
-add_executable(unit_tests tests/test_kernels.cpp)
+# Find all test files dynamically
+file(GLOB TEST_SOURCES "tests/*.cpp")
+
+# Create the test executable using all test files
+add_executable(unit_tests ${TEST_SOURCES})
 
 # Link the Core Library AND GoogleTest
 target_link_libraries(unit_tests PRIVATE 
@@ -76,7 +79,7 @@ target_link_libraries(unit_tests PRIVATE
     GTest::gtest_main
 )
 
-# Allow the test file to use CUDA calls directly if needed
+# Allow the test files to use CUDA calls directly if needed
 if(BACKEND STREQUAL "CUDA")
     set_target_properties(unit_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 endif()
