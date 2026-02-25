@@ -38,3 +38,6 @@ void launch_flash_attention(
     int current_seq_len,
     cudaStream_t stream = 0
 );
+
+// Residual Add
+void launch_add(float* d_out, float* d_a, float* d_b, int size, cudaStream_t stream = 0);

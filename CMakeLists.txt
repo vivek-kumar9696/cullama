@@ -26,14 +26,14 @@ if(BACKEND STREQUAL "CUDA")
     add_compile_definitions(USE_CUDA)
     
     # Define the backend library (cudart)
-    set(BACKEND_LIB CUDA::cudart)
+    set(BACKEND_LIB CUDA::cudart CUDA::cublas)
 
 elseif(BACKEND STREQUAL "HIP")
     list(APPEND CMAKE_MODULE_PATH /opt/rocm/hip/cmake) 
     find_package(HIP REQUIRED)
     add_compile_definitions(USE_ROCM)
     add_compile_definitions(__HIP_PLATFORM_AMD__)
-    set(BACKEND_LIB hip::host)
+    set(BACKEND_LIB hip::host roc::rocblas)
 endif()
 
 # --- 1. The Core Library (libcuLlama) ---
