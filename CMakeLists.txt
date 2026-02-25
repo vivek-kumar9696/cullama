@@ -42,6 +42,7 @@ file(GLOB_RECURSE CORE_SOURCES
     "src/memory_manager.cpp"
     "src/model_loader.cpp"
     "src/kv_cache.cpp"
+    "src/engine.cpp" 
     "kernels/*.cu"
 )
 
