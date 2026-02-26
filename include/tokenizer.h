@@ -29,7 +29,7 @@ public:
         std::cout << "[Tokenizer] Loaded " << vocab_size << " tokens." << std::endl;
     }
 
- std::string decode(int token_id) {
+    std::string decode(int token_id) {
         if (token_id >= 0 && token_id < vocab.size()) {
             std::string text = vocab[token_id];
             
