@@ -1,11 +1,10 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
 #include "model_loader.h"
 #include "engine.h"
+#include "tokenizer.h"
 #include "cuda_utils.h"
 
-// Temporary naive Argmax sampler on CPU
 int argmax(float* d_logits, int vocab_size) {
     std::vector<float> h_logits(vocab_size);
     CUDA_CHECK(cudaMemcpy(h_logits.data(), d_logits, vocab_size * sizeof(float), cudaMemcpyDeviceToHost));
@@ -22,45 +21,56 @@ int argmax(float* d_logits, int vocab_size) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cerr << "Usage: ./cuLlama <path_to_model.bin>" << std::endl;
+    if (argc < 4) {
+        std::cerr << "Usage: ./cuLlama <model.bin> <tokenizer.bin> <token1> <token2> ..." << std::endl;
         return 1;
     }
 
-    // 1. Mount the Weights (Zero-Copy)
     ModelLoader loader(argv[1]);
     if (!loader.load()) return 1;
 
-    // 2. Initialize the Engine
+    Tokenizer tokenizer(argv[2]);
     Engine engine(loader.get_config(), loader.get_weights());
-    std::cout << "[App] Engine Initialized. Ready for inference." << std::endl;
-
-    // 3. The Inference Loop
-    int prompt_token = 1; // Assume token 1 is <s> (Begin of Sequence)
-    int current_token = prompt_token;
     
-    std::cout << "\n--- Generating Tokens ---" << std::endl;
-    std::cout << "Token IDs: " << current_token << " ";
+    std::cout << "\n[App] Engine Ready. Generating...\n" << std::endl;
 
-    for (int pos = 0; pos < 10; pos++) { // Generate 10 tokens
-        // A. Forward Pass
-        float* d_logits = engine.forward(current_token, pos);
+    // --- READ PROMPT FROM COMMAND LINE ---
+    std::vector<int> prompt;
+    for (int i = 3; i < argc; i++) {
+        prompt.push_back(std::stoi(argv[i]));
+    }
+
+    int pos = 0;
+
+    // 1. PREFILL PHASE
+    for (size_t i = 0; i < prompt.size() - 1; i++) {
+        int token = prompt[i];
         
-        // Wait for GPU to finish computing
+        // Print the prompt cleanly
+        if (token != 1 && token != 2) std::cout << tokenizer.decode(token) << std::flush;
+        
+        engine.forward(token, pos);
+        engine.step_cleanup();
+        pos++;
+    }
+
+    // 2. GENERATION PHASE
+    int current_token = prompt.back();
+    std::cout << tokenizer.decode(current_token) << std::flush;
+
+    for (int step = 0; step < 30; step++) { 
+        float* d_logits = engine.forward(current_token, pos);
         CUDA_CHECK(cudaDeviceSynchronize());
 
-        // B. Sample next token
         int next_token = argmax(d_logits, loader.get_config().vocab_size);
-        std::cout << next_token << " " << std::flush;
-
-        // C. Clean up Arena for the next step
-        engine.step_cleanup();
         
-        // D. Update state
+        std::cout << tokenizer.decode(next_token) << std::flush;
+
+        engine.step_cleanup();
         current_token = next_token;
+        pos++;
     }
     
-    std::cout << "\n\n[App] Generation Complete." << std::endl;
-
+    std::cout << "\n\n[App] Complete." << std::endl;
     return 0;
 }
